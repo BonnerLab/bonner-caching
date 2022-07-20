@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bonner-caching"
-description = "Bonner Lab utilities to cache function outputs to disk"
+description = "Bonner Lab utilities for caching function outputs to disk"
 readme = "README.md"
 requires-python = ">=3.9"
 license = {file = "LICENSE"}
