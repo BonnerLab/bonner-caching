@@ -18,18 +18,18 @@ class Cacher:
     def __init__(
         self,
         *,
-        include_args: Iterable[str] = [],
-        exclude_args: Iterable[str] = [],
+        include: Iterable[str] = [],
+        exclude: Iterable[str] = [],
         custom_identifier: str = "",
     ) -> None:
         assert not (
-            include_args and exclude_args
+            include and exclude
         ), "only one of 'include_args' and 'exclude_args' can be specified"
         self.cache_dir = BONNER_CACHING_HOME
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.custom_identifier = custom_identifier
-        self.include_args = include_args
-        self.exclude_args = exclude_args
+        self.include_args = include
+        self.exclude_args = exclude
 
     def __call__(self, function: Callable) -> Callable:
         @wraps(function)
@@ -139,10 +139,10 @@ def create_identifier(function: Callable, call_args: Dict[str, Any]) -> str:
         f"{key}={str(value).replace('/', '_')}" for key, value in call_args.items()
     )
     if params:
-        function_identifier = str(Path(module) / params)
+        identifier = str(Path(module) / params)
     else:
-        function_identifier = str(Path(module) / "_")
-    return function_identifier
+        identifier = str(Path(module) / "_")
+    return identifier
 
 
 cache = Cacher
