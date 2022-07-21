@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from typing import Any, Callable
+from typing import Any, Callable, ParamSpec, TypeVar
 
 from functools import wraps
 import inspect
@@ -10,6 +10,8 @@ import pickle
 import numpy as np
 import xarray as xr
 
+P = ParamSpec("P")
+R = TypeVar("R")
 
 _BONNER_CACHING_HOME = Path(os.getenv("CACHE_HOME", str(Path.home() / "cache")))
 _BONNER_CACHING_MODE = os.getenv("BONNER_CACHING_MODE", "normal")
@@ -32,10 +34,10 @@ class _Cacher:
         self.include_args = include
         self.exclude_args = exclude
 
-    def __call__(self, function: Callable[..., Any]) -> Callable[..., Any]:
+    def __call__(self, function: Callable[P, R]) -> Callable[P, R]:
         @wraps(function)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            call_args = self.get_call_args(function, *args, **kwargs)
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+            call_args = self.get_args(function, *args, **kwargs)
             identifier = self.create_identifier(function, call_args)
 
             if _BONNER_CACHING_MODE == "normal":
@@ -95,56 +97,52 @@ class _Cacher:
             with open(filepath, "rb") as f:
                 return pickle.load(f)
 
-    def delete(self, identifier: str) -> Any:
+    def delete(self, identifier: str) -> None:
         filepath = self.is_stored(identifier)
         filepath.unlink()
 
-    def get_call_args(
-        self, function: Callable[..., Any], *args: Any, **kwargs: Any
+    def get_args(
+        self, function: Callable[P, R], *args: P.args, **kwargs: P.kwargs
     ) -> dict[str, Any]:
         signature = inspect.signature(function)
         bound_arguments = signature.bind(*args, **kwargs)
         bound_arguments.apply_defaults()
         return bound_arguments.arguments
 
-    def create_identifier(
-        self, function: Callable[..., Any], call_args: dict[str, Any]
-    ) -> str:
+    def create_identifier(self, function: Callable[P, R], args: dict[str, Any]) -> str:
         if self.exclude_args:
-            call_args = {
+            args = {
                 key: value
-                for key, value in call_args.items()
+                for key, value in args.items()
                 if key not in self.exclude_args
             }
         elif self.include_args:
-            call_args = {
-                key: value
-                for key, value in call_args.items()
-                if key in self.include_args
+            args = {
+                key: value for key, value in args.items() if key in self.include_args
             }
-        identifier = create_identifier(function, call_args)
+        identifier = create_identifier(function, args)
         if self.custom_identifier:
             identifier = f"{identifier}_{self.custom_identifier}"
         return identifier
 
 
-def create_identifier(function: Callable[..., Any], call_args: dict[str, Any]) -> str:
+def create_identifier(function: Callable[P, R], args: dict[str, Any]) -> str:
     module = [function.__module__, function.__name__]
-    if "self" in call_args:
-        object = call_args["self"]
+    if "self" in args:
+        object = args["self"]
         class_name = object.__class__.__name__
         if "object at" in str(object):
             object = class_name
         else:
             object = f"{class_name}({str(object)})"
         module.insert(1, object)
-        del call_args["self"]
-    module = ".".join(module)
-    params = ",".join(
-        f"{key}={str(value).replace('/', '_')}" for key, value in call_args.items()
+        del args["self"]
+    module_identifier = ".".join(module)
+    parameters_identifier = ",".join(
+        f"{key}={str(value).replace('/', '_')}" for key, value in args.items()
     )
-    if params:
-        identifier = str(Path(module) / params)
+    if parameters_identifier:
+        identifier = str(Path(module_identifier) / parameters_identifier)
     else:
-        identifier = str(Path(module) / "_")
+        identifier = str(Path(module_identifier) / "_")
     return identifier

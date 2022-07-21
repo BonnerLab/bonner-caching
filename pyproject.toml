@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "bonner-caching"
 description = "Bonner Lab utilities for caching function outputs to disk"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = {file = "LICENSE"}
 authors = [
     {name = "Raj Magesh Gauthaman", email = "rgautha1@jh.edu"}
@@ -36,3 +36,29 @@ dynamic = ["version"]
 [project.optional-dependencies]
 docs = ["sphinx"]
 dev = ["black", "mypy"]
+
+[tool.black]
+preview = true
+
+[tool.mypy]
+namespace_packages = true
+ignore_missing_imports = true
+
+disallow_untyped_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+
+# disallow_any_unimported = true
+# disallow_any_expr = true
+# disallow_any_decorated = true
+# disallow_any_explicit = true
+disallow_any_generics = true
+disallow_subclassing_any = true
+
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+# warn_return_any = true
+warn_unreachable = true
+
+allow_redefinition = true
