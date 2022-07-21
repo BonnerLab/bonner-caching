@@ -1,4 +1,5 @@
-from typing import Any, Callable, Iterable, Dict
+from collections.abc import Iterable
+from typing import Any, Callable
 
 from functools import wraps
 import inspect
@@ -10,11 +11,11 @@ import numpy as np
 import xarray as xr
 
 
-BONNER_CACHING_HOME = Path(os.getenv("CACHE_HOME", str(Path.home() / "cache")))
-BONNER_CACHING_MODE = os.getenv("BONNER_CACHING_MODE", "normal")
+_BONNER_CACHING_HOME = Path(os.getenv("CACHE_HOME", str(Path.home() / "cache")))
+_BONNER_CACHING_MODE = os.getenv("BONNER_CACHING_MODE", "normal")
 
 
-class Cacher:
+class _Cacher:
     def __init__(
         self,
         *,
@@ -25,41 +26,41 @@ class Cacher:
         assert not (
             include and exclude
         ), "only one of 'include_args' and 'exclude_args' can be specified"
-        self.cache_dir = BONNER_CACHING_HOME
+        self.cache_dir = _BONNER_CACHING_HOME
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.custom_identifier = custom_identifier
         self.include_args = include
         self.exclude_args = exclude
 
-    def __call__(self, function: Callable) -> Callable:
+    def __call__(self, function: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(function)
-        def wrapper(*args, **kwargs) -> Any:
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             call_args = self.get_call_args(function, *args, **kwargs)
             identifier = self.create_identifier(function, call_args)
 
-            if BONNER_CACHING_MODE == "normal":
+            if _BONNER_CACHING_MODE == "normal":
                 if self.is_stored(identifier):
                     result = self.load(identifier)
                 else:
                     result = function(*args, **kwargs)
                     self.save(result, identifier)
-            elif BONNER_CACHING_MODE == "readonly":
+            elif _BONNER_CACHING_MODE == "readonly":
                 if self.is_stored(identifier):
                     result = self.load(identifier)
                 else:
                     result = function(*args, **kwargs)
-            elif BONNER_CACHING_MODE == "overwrite":
+            elif _BONNER_CACHING_MODE == "overwrite":
                 result = function(*args, **kwargs)
                 self.save(result, identifier)
-            elif BONNER_CACHING_MODE == "delete":
+            elif _BONNER_CACHING_MODE == "delete":
                 if self.is_stored(identifier):
                     self.delete(identifier)
                 result = function(*args, **kwargs)
-            elif BONNER_CACHING_MODE == "ignore":
+            elif _BONNER_CACHING_MODE == "ignore":
                 result = function(*args, **kwargs)
             else:
                 raise ValueError(
-                    f"$BONNER_CACHING_MODE cannot take the value {BONNER_CACHING_MODE}"
+                    f"$BONNER_CACHING_MODE cannot take the value {_BONNER_CACHING_MODE}"
                 )
             return result
 
@@ -98,13 +99,17 @@ class Cacher:
         filepath = self.is_stored(identifier)
         filepath.unlink()
 
-    def get_call_args(self, function: Callable, *args, **kwargs) -> Dict[str, Any]:
+    def get_call_args(
+        self, function: Callable[..., Any], *args: Any, **kwargs: Any
+    ) -> dict[str, Any]:
         signature = inspect.signature(function)
         bound_arguments = signature.bind(*args, **kwargs)
         bound_arguments.apply_defaults()
         return bound_arguments.arguments
 
-    def create_identifier(self, function: Callable, call_args: Dict[str, Any]) -> str:
+    def create_identifier(
+        self, function: Callable[..., Any], call_args: dict[str, Any]
+    ) -> str:
         if self.exclude_args:
             call_args = {
                 key: value
@@ -123,7 +128,7 @@ class Cacher:
         return identifier
 
 
-def create_identifier(function: Callable, call_args: Dict[str, Any]) -> str:
+def create_identifier(function: Callable[..., Any], call_args: dict[str, Any]) -> str:
     module = [function.__module__, function.__name__]
     if "self" in call_args:
         object = call_args["self"]
@@ -143,6 +148,3 @@ def create_identifier(function: Callable, call_args: Dict[str, Any]) -> str:
     else:
         identifier = str(Path(module) / "_")
     return identifier
-
-
-cache = Cacher
