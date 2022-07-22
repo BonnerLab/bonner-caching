@@ -34,7 +34,7 @@ dependencies = [
 dynamic = ["version"]
 
 [project.optional-dependencies]
-docs = ["sphinx"]
+docs = ["sphinx", "sphinx-autodoc-typehints", "pydocstringformatter"]
 dev = ["black", "mypy"]
 
 [tool.black]
@@ -50,8 +50,8 @@ disallow_untyped_decorators = true
 
 # disallow_any_unimported = true
 # disallow_any_expr = true
-# disallow_any_decorated = true
-# disallow_any_explicit = true
+disallow_any_decorated = true
+disallow_any_explicit = true
 disallow_any_generics = true
 disallow_subclassing_any = true
 
@@ -62,3 +62,7 @@ warn_no_return = true
 warn_unreachable = true
 
 allow_redefinition = true
+
+[tool.pydocstringformatter]
+write = true
+summary-quotes-same-line = true
