@@ -1,3 +1,3 @@
-from .cacher import _Cacher as cache
-
 __all__ = ["cache"]
+
+from ._cacher import Cacher as cache

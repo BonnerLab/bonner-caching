@@ -13,11 +13,13 @@ import xarray as xr
 P = ParamSpec("P")
 R = TypeVar("R")
 
-_BONNER_CACHING_HOME = Path(os.getenv("CACHE_HOME", str(Path.home() / "cache")))
-_BONNER_CACHING_MODE = os.getenv("BONNER_CACHING_MODE", "normal")
+BONNER_CACHING_CACHE = Path(
+    os.getenv("BONNER_CACHING_CACHE", str(Path.home() / "cache"))
+)
+BONNER_CACHING_MODE = os.getenv("BONNER_CACHING_MODE", "normal")
 
 
-class _Cacher:
+class Cacher:
     def __init__(
         self,
         *,
@@ -28,7 +30,7 @@ class _Cacher:
         assert not (
             include and exclude
         ), "only one of 'include_args' and 'exclude_args' can be specified"
-        self.cache_dir = _BONNER_CACHING_HOME
+        self.cache_dir = BONNER_CACHING_CACHE
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.custom_identifier = custom_identifier
         self.include_args = include
@@ -40,29 +42,29 @@ class _Cacher:
             call_args = self.get_args(function, *args, **kwargs)
             identifier = self.create_identifier(function, call_args)
 
-            if _BONNER_CACHING_MODE == "normal":
+            if BONNER_CACHING_MODE == "normal":
                 if self.is_stored(identifier):
                     result = self.load(identifier)
                 else:
                     result = function(*args, **kwargs)
                     self.save(result, identifier)
-            elif _BONNER_CACHING_MODE == "readonly":
+            elif BONNER_CACHING_MODE == "readonly":
                 if self.is_stored(identifier):
                     result = self.load(identifier)
                 else:
                     result = function(*args, **kwargs)
-            elif _BONNER_CACHING_MODE == "overwrite":
+            elif BONNER_CACHING_MODE == "overwrite":
                 result = function(*args, **kwargs)
                 self.save(result, identifier)
-            elif _BONNER_CACHING_MODE == "delete":
+            elif BONNER_CACHING_MODE == "delete":
                 if self.is_stored(identifier):
                     self.delete(identifier)
                 result = function(*args, **kwargs)
-            elif _BONNER_CACHING_MODE == "ignore":
+            elif BONNER_CACHING_MODE == "ignore":
                 result = function(*args, **kwargs)
             else:
                 raise ValueError(
-                    f"$BONNER_CACHING_MODE cannot take the value {_BONNER_CACHING_MODE}"
+                    f"$BONNER_CACHING_MODE cannot take the value {BONNER_CACHING_MODE}"
                 )
             return result
 
