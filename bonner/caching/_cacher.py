@@ -71,7 +71,7 @@ class Cacher:
         return wrapper
 
     def is_stored(self, identifier: str) -> Path | None:
-        filepaths = list(self.cache_dir.glob(identifier))
+        filepaths = list(self.cache_dir.glob(f"{identifier}*"))
         assert len(filepaths) <= 1, "more than one file matches this identifier"
         if len(filepaths) == 1:
             return filepaths[0]
