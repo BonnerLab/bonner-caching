@@ -124,7 +124,7 @@ class Cacher:
             }
         identifier = create_identifier(function, args)
         if self.custom_identifier:
-            identifier = f"{identifier}_{self.custom_identifier}"
+            identifier = "_".join((identifier, self.custom_identifier))
         return identifier
 
 
@@ -145,6 +145,4 @@ def create_identifier(function: Callable[P, R], args: dict[str, Any]) -> str:
     )
     if parameters_identifier:
         identifier = str(Path(module_identifier) / parameters_identifier)
-    else:
-        identifier = str(Path(module_identifier) / "_")
     return identifier
