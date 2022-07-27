@@ -145,4 +145,6 @@ def create_identifier(function: Callable[P, R], args: dict[str, Any]) -> str:
     )
     if parameters_identifier:
         identifier = str(Path(module_identifier) / parameters_identifier)
+    else:
+        identifier = str(Path(module_identifier))
     return identifier
