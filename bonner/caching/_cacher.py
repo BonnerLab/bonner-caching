@@ -122,13 +122,24 @@ class Cacher:
             args = {
                 key: value for key, value in args.items() if key in self.include_args
             }
-        identifier = create_identifier(function, args)
-        if self.custom_identifier:
-            identifier = "_".join((identifier, self.custom_identifier))
-        return identifier
+        module_identifier, parameters_identifier = create_identifier(function, args)
+        if parameters_identifier:
+            if self.custom_identifier:
+                filename = "_".join((parameters_identifier, self.custom_identifier))
+            else:
+                filename = parameters_identifier
+        else:
+            if self.custom_identifier:
+                filename = self.custom_identifier
+            else:
+                raise ValueError("Custom identifier must be passed if no arguments are used for naming")
+
+        return f"{module_identifier}/{filename}"
 
 
-def create_identifier(function: Callable[P, R], args: dict[str, Any]) -> str:
+def create_identifier(
+    function: Callable[P, R], args: dict[str, Any]
+) -> tuple[str, str]:
     module = [function.__module__, function.__name__]
     if "self" in args:
         object = args["self"]
@@ -143,8 +154,4 @@ def create_identifier(function: Callable[P, R], args: dict[str, Any]) -> str:
     parameters_identifier = ",".join(
         f"{key}={str(value).replace('/', '_')}" for key, value in args.items()
     )
-    if parameters_identifier:
-        identifier = str(Path(module_identifier) / parameters_identifier)
-    else:
-        identifier = f"{Path(module_identifier)}/"
-    return identifier
+    return module_identifier, parameters_identifier
