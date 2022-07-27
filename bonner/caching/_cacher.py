@@ -71,7 +71,7 @@ class Cacher:
         return wrapper
 
     def is_stored(self, identifier: str) -> Path | None:
-        filepaths = list(self.cache_dir.glob(f"{identifier}*"))
+        filepaths = list(self.cache_dir.glob(f"{identifier}.*"))
         assert len(filepaths) <= 1, "more than one file matches this identifier"
         if len(filepaths) == 1:
             return filepaths[0]
@@ -132,7 +132,10 @@ class Cacher:
             if self.custom_identifier:
                 filename = self.custom_identifier
             else:
-                raise ValueError("Custom identifier must be passed if no arguments are used for naming")
+                raise ValueError(
+                    "Custom identifier must be passed if no arguments are used for"
+                    " naming"
+                )
 
         return f"{module_identifier}/{filename}"
 
