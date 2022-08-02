@@ -13,25 +13,32 @@ import xarray as xr
 P = ParamSpec("P")
 R = TypeVar("R")
 
-BONNER_CACHING_CACHE = Path(
-    os.getenv("BONNER_CACHING_CACHE", str(Path.home() / ".cache" / "bonner-caching"))
+DEFAULT_PATH = Path(
+    os.getenv("BONNER_CACHING_PATH", str(Path.home() / ".cache" / "bonner-caching"))
 )
-BONNER_CACHING_MODE = os.getenv("BONNER_CACHING_MODE", "normal")
+DEFAULT_MODE = os.getenv("BONNER_CACHING_MODE", "normal")
+
+MODES = {"normal", "readonly", "overwrite", "delete", "ignore"}
 
 
 class Cacher:
     def __init__(
         self,
         *,
+        path: Path = DEFAULT_PATH,
+        mode: str = DEFAULT_MODE,
         include: Iterable[str] = [],
         exclude: Iterable[str] = [],
         custom_identifier: str = "",
     ) -> None:
-        assert not (
-            include and exclude
-        ), "only one of 'include_args' and 'exclude_args' can be specified"
-        self.cache_dir = BONNER_CACHING_CACHE
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        if include and exclude:
+            raise ValueError("only one of 'include' and 'exclude' can be specified")
+        self.path = path
+        self.path.mkdir(parents=True, exist_ok=True)
+
+        if mode not in MODES:
+            raise ValueError(f"mode must be one of {MODES}")
+        self.mode = mode
         self.custom_identifier = custom_identifier
         self.include_args = include
         self.exclude_args = exclude
@@ -42,53 +49,49 @@ class Cacher:
             call_args = self.get_args(function, *args, **kwargs)
             identifier = self.create_identifier(function, call_args)
 
-            if BONNER_CACHING_MODE == "normal":
+            if self.mode == "normal":
                 if self.is_stored(identifier):
                     result = self.load(identifier)
                 else:
                     result = function(*args, **kwargs)
                     self.save(result, identifier)
-            elif BONNER_CACHING_MODE == "readonly":
+            elif self.mode == "readonly":
                 if self.is_stored(identifier):
                     result = self.load(identifier)
                 else:
                     result = function(*args, **kwargs)
-            elif BONNER_CACHING_MODE == "overwrite":
+            elif self.mode == "overwrite":
                 result = function(*args, **kwargs)
                 self.save(result, identifier)
-            elif BONNER_CACHING_MODE == "delete":
+            elif self.mode == "delete":
                 if self.is_stored(identifier):
                     self.delete(identifier)
                 result = function(*args, **kwargs)
-            elif BONNER_CACHING_MODE == "ignore":
+            elif self.mode == "ignore":
                 result = function(*args, **kwargs)
-            else:
-                raise ValueError(
-                    f"$BONNER_CACHING_MODE cannot take the value {BONNER_CACHING_MODE}"
-                )
             return result
 
         return wrapper
 
     def is_stored(self, identifier: str) -> Path | None:
-        filepaths = list(
-            self.cache_dir.glob(f"{identifier}.*")
-        )  # FIXME false positives
-        assert len(filepaths) <= 1, "more than one file matches this identifier"
-        if len(filepaths) == 1:
+        filepaths = list(self.path.glob(identifier))
+        filepaths = [path for path in filepaths if path.stem == identifier]
+        if len(filepaths) == 0:
+            return None
+        elif len(filepaths) == 1:
             return filepaths[0]
         else:
-            return None
+            raise ValueError(f"More than one file matches the identifier {identifier}")
 
     def save(self, result: Any, identifier: str) -> None:
-        filepath = self.cache_dir / identifier
+        filepath = self.path / identifier
         filepath.parent.mkdir(parents=True, exist_ok=True)
         if isinstance(result, np.ndarray):
-            np.save(self.cache_dir / f"{identifier}.npy", result)
-        elif isinstance(result, xr.DataArray) or isinstance(result, xr.Dataset):
-            result.to_netcdf(self.cache_dir / f"{identifier}.nc")
+            np.save(self.path / f"{identifier}.npy", result)
+        elif isinstance(result, xr.DataArray):
+            result.to_netcdf(self.path / f"{identifier}.nc")
         else:
-            with open(self.cache_dir / f"{identifier}.pkl", "wb") as f:
+            with open(self.path / f"{identifier}.pkl", "wb") as f:
                 pickle.dump(result, f)
 
     def load(self, identifier: str) -> Any:

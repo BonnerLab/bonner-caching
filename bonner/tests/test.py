@@ -3,7 +3,7 @@ import numpy as np
 from bonner.caching import cache
 
 
-@cache(exclude=["x"], custom_identifier="test")
+@cache(exclude=["x"], custom="test")
 def add_1(x: int, y: str = "cat"):
     return np.zeros(x)
 
