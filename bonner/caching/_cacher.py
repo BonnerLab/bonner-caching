@@ -28,11 +28,8 @@ class Cacher:
         path: Path = DEFAULT_PATH,
         mode: str = DEFAULT_MODE,
         include: Iterable[str] = [],
-        exclude: Iterable[str] = [],
         custom_identifier: str = "",
     ) -> None:
-        if include and exclude:
-            raise ValueError("only one of 'include' and 'exclude' can be specified")
         self.path = path
         self.path.mkdir(parents=True, exist_ok=True)
 
@@ -41,7 +38,6 @@ class Cacher:
         self.mode = mode
         self.custom_identifier = custom_identifier
         self.include_args = include
-        self.exclude_args = exclude
 
     def __call__(self, function: Callable[P, R]) -> Callable[P, R]:
         @wraps(function)
@@ -74,8 +70,12 @@ class Cacher:
         return wrapper
 
     def is_stored(self, identifier: str) -> Path | None:
-        filepaths = list(self.path.glob(identifier))
-        filepaths = [path for path in filepaths if path.stem == identifier]
+        filepaths = list(self.path.glob(f"{identifier}*"))
+        filepaths = [
+            path
+            for path in filepaths
+            if str(filepaths[0].relative_to(self.path).with_suffix("")) == identifier
+        ]
         if len(filepaths) == 0:
             return None
         elif len(filepaths) == 1:
@@ -117,13 +117,7 @@ class Cacher:
         return bound_arguments.arguments
 
     def create_identifier(self, function: Callable[P, R], args: dict[str, Any]) -> str:
-        if self.exclude_args:
-            args = {
-                key: value
-                for key, value in args.items()
-                if key not in self.exclude_args
-            }
-        elif self.include_args:
+        if self.include_args:
             args = {
                 key: value for key, value in args.items() if key in self.include_args
             }
