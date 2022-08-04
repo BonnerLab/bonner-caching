@@ -2,6 +2,7 @@ from collections.abc import Iterable
 from typing import Any, Callable, ParamSpec, TypeVar
 
 from functools import wraps
+import glob
 import inspect
 from pathlib import Path
 import os
@@ -40,6 +41,7 @@ class Cacher:
         self.include_args = include
 
     def __call__(self, function: Callable[P, R]) -> Callable[P, R]:
+        # TODO add correct type annotations
         @wraps(function)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             call_args = self.get_args(function, *args, **kwargs)
@@ -70,11 +72,12 @@ class Cacher:
         return wrapper
 
     def is_stored(self, identifier: str) -> Path | None:
-        filepaths = list(self.path.glob(f"{identifier}*"))
+        # TODO write more efficient version of this (e.g. filepaths = list((self.path / identifier).glob("*")))
+        filepaths = list(self.path.rglob(f"{glob.escape(identifier)}*"))
         filepaths = [
             path
             for path in filepaths
-            if str(filepaths[0].relative_to(self.path).with_suffix("")) == identifier
+            if str(path.relative_to(self.path).with_suffix("")) == identifier
         ]
         if len(filepaths) == 0:
             return None

@@ -1,2 +1,2 @@
 *.pyc
-bonner_caching.egg-info
+*.egg-info
