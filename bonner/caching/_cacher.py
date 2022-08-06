@@ -28,7 +28,7 @@ class Cacher:
         *,
         path: Path = DEFAULT_PATH,
         mode: str = DEFAULT_MODE,
-        include: Iterable[str] = [],
+        include: Iterable[str] | None = None,
         custom_identifier: str = "",
     ) -> None:
         self.path = path
@@ -38,7 +38,7 @@ class Cacher:
             raise ValueError(f"mode must be one of {MODES}")
         self.mode = mode
         self.custom_identifier = custom_identifier
-        self.include_args = include
+        self.include = include
 
     def __call__(self, function: Callable[P, R]) -> Callable[P, R]:
         # TODO add correct type annotations
@@ -91,7 +91,7 @@ class Cacher:
         filepath.parent.mkdir(parents=True, exist_ok=True)
         if isinstance(result, np.ndarray):
             np.save(self.path / f"{identifier}.npy", result)
-        elif isinstance(result, xr.DataArray):
+        elif isinstance(result, xr.DataArray) or isinstance(result, xr.Dataset):
             result.to_netcdf(self.path / f"{identifier}.nc")
         else:
             with open(self.path / f"{identifier}.pkl", "wb") as f:
@@ -102,7 +102,10 @@ class Cacher:
         if filepath.suffix == ".npy":
             return np.load(filepath)
         elif filepath.suffix == ".nc":
-            return xr.load_dataarray(filepath)
+            try:
+                return xr.open_dataarray(filepath)
+            except Exception:
+                return xr.open_dataset(filepath)
         else:
             with open(filepath, "rb") as f:
                 return pickle.load(f)
@@ -120,10 +123,8 @@ class Cacher:
         return bound_arguments.arguments
 
     def create_identifier(self, function: Callable[P, R], args: dict[str, Any]) -> str:
-        if self.include_args:
-            args = {
-                key: value for key, value in args.items() if key in self.include_args
-            }
+        if self.include is not None:
+            args = {key: value for key, value in args.items() if key in self.include}
         module_identifier, parameters_identifier = create_identifier(function, args)
         if parameters_identifier:
             if self.custom_identifier:
