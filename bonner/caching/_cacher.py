@@ -15,7 +15,7 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 DEFAULT_PATH = Path(
-    os.getenv("BONNER_CACHING_PATH", str(Path.home() / ".cache" / "bonner-caching"))
+    os.getenv("BONNER_CACHING_CACHE", str(Path.home() / ".cache" / "bonner-caching"))
 )
 DEFAULT_MODE = os.getenv("BONNER_CACHING_MODE", "normal")
 
