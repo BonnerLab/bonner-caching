@@ -86,7 +86,7 @@ class Cacher:
         else:
             raise ValueError(f"More than one file matches the identifier {identifier}")
 
-    def save(self, result: Any, identifier: str) -> None:
+    def save(self, result: Any, identifier: str) -> None:  # type: ignore  # result can be Any
         filepath = self.path / identifier
         filepath.parent.mkdir(parents=True, exist_ok=True)
         if isinstance(result, np.ndarray):
@@ -97,7 +97,7 @@ class Cacher:
             with open(self.path / f"{identifier}.pkl", "wb") as f:
                 pickle.dump(result, f)
 
-    def load(self, identifier: str) -> Any:
+    def load(self, identifier: str) -> Any:  # type: ignore  # file contents can be Any
         filepath = self.is_stored(identifier)
         if filepath.suffix == ".npy":
             return np.load(filepath)
@@ -114,7 +114,7 @@ class Cacher:
         filepath = self.is_stored(identifier)
         filepath.unlink()
 
-    def get_args(
+    def get_args(  # type: ignore  # arguments can be Any
         self, function: Callable[P, R], *args: P.args, **kwargs: P.kwargs
     ) -> dict[str, Any]:
         signature = inspect.signature(function)
@@ -122,7 +122,7 @@ class Cacher:
         bound_arguments.apply_defaults()
         return bound_arguments.arguments
 
-    def create_identifier(self, function: Callable[P, R], args: dict[str, Any]) -> str:
+    def create_identifier(self, function: Callable[P, R], args: dict[str, Any]) -> str:  # type: ignore  # arguments can be Any
         if self.include is not None:
             args = {key: value for key, value in args.items() if key in self.include}
         module_identifier, parameters_identifier = create_identifier(function, args)
@@ -143,7 +143,7 @@ class Cacher:
         return f"{module_identifier}/{filename}"
 
 
-def create_identifier(
+def create_identifier(  # type: ignore  # arguments can be Any
     function: Callable[P, R], args: dict[str, Any]
 ) -> tuple[str, str]:
     module = [function.__module__, function.__name__]
