@@ -1,5 +1,5 @@
-Bonner Lab | Models
-===================
+Bonner Lab | Caching
+====================
 
 .. toctree::
    :maxdepth: 2
