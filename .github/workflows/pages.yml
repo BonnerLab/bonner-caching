@@ -1,0 +1,70 @@
+name: Build and deploy documentation
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Build and deploy Sphinx documentation to GitHub Pages
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - name: Set git credentials
+        shell: bash
+        run: |
+          author_name="$(git show --format=%an -s)"
+          author_email="$(git show --format=%ae -s)"
+          git config user.name "$author_name"
+          git config user.email "$author_email"
+      - name: Install the library
+        run: |
+          pip3 install .[doc]
+      - name: Generate Sphinx HTML documentation
+        shell: bash -l {0}
+        working-directory: ./docs
+        run: |
+          make html
+      - name: Push updated documentation to main
+        run: |
+          DIR_HTML=docs/_build/html/
+          touch $DIR_HTML/.nojekyll
+          git add -f "docs/"
+          git commit -m "Update documentation"
+          git push origin main --force
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@v2
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v1
+        with:
+          path: 'docs/_build/html'
+  deploy:
+    needs: build
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}    
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v1

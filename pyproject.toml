@@ -26,16 +26,34 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Typing :: Typed",
 ]
-urls = {repository = "https://github.com/BonnerLab/bonner-caching"}
+urls = {repository = "https://github.com/BonnerLab/bonner-caching", documentation = "https://bonnerlab.github.io/bonner-caching/index.html"}
 dependencies = [
     "numpy",
     "xarray",
+    "netCDF4",
 ]
 dynamic = ["version"]
 
 [project.optional-dependencies]
-docs = ["sphinx", "sphinx-autodoc-typehints", "pydocstringformatter"]
-dev = ["black", "mypy"]
+lint = [
+    "black",
+    "isort",
+    "pylint",
+    "docformatter",
+    "mypy",
+]
+test = [
+    "pytest",
+    "pytest-cov",
+]
+doc = [
+    "sphinx",
+    "furo",
+    "interrogate"
+]
+ci = [
+    "pre-commit",
+]
 
 [tool.black]
 preview = true
@@ -58,11 +76,10 @@ disallow_subclassing_any = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
-# warn_return_any = true
+warn_return_any = true
 warn_unreachable = true
 
 allow_redefinition = true
 
-[tool.pydocstringformatter]
-write = true
-summary-quotes-same-line = true
+[tool.isort]
+profile = "black"
