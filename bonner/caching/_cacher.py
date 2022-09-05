@@ -1,8 +1,6 @@
-from collections.abc import Iterable
 from typing import Any, Callable, ParamSpec, TypeVar
 
 from functools import wraps
-import glob
 import inspect
 from pathlib import Path
 import os
@@ -28,8 +26,8 @@ class Cacher:
         *,
         path: Path = DEFAULT_PATH,
         mode: str = DEFAULT_MODE,
-        include: Iterable[str] | None = None,
-        custom_identifier: str = "",
+        identifier: str = None,
+        filetype: str = "pickle",
     ) -> None:
         self.path = path
         self.path.mkdir(parents=True, exist_ok=True)
@@ -37,15 +35,15 @@ class Cacher:
         if mode not in MODES:
             raise ValueError(f"mode must be one of {MODES}")
         self.mode = mode
-        self.custom_identifier = custom_identifier
-        self.include = include
+        self.identifier = identifier
+        self.filetype = filetype
 
     def __call__(self, function: Callable[P, R]) -> Callable[P, R]:
-        # TODO add correct type annotations
         @wraps(function)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             call_args = self.get_args(function, *args, **kwargs)
-            identifier = self.create_identifier(function, call_args)
+
+            identifier = self.identifier.format(**call_args)
 
             if self.mode == "normal":
                 if self.is_stored(identifier):
@@ -72,41 +70,35 @@ class Cacher:
         return wrapper
 
     def is_stored(self, identifier: str) -> Path | None:
-        # TODO write more efficient version of this (e.g. filepaths = list((self.path / identifier).glob("*")))
-        filepaths = list(self.path.rglob(f"{glob.escape(identifier)}*"))
-        filepaths = [
-            path
-            for path in filepaths
-            if str(path.relative_to(self.path).with_suffix("")) == identifier
-        ]
-        if len(filepaths) == 0:
-            return None
-        elif len(filepaths) == 1:
-            return filepaths[0]
+        path = self.path / identifier
+        if path.exists():
+            return path
         else:
-            raise ValueError(f"More than one file matches the identifier {identifier}")
+            return None
 
     def save(self, result: Any, identifier: str) -> None:  # type: ignore  # result can be Any
-        filepath = self.path / identifier
-        filepath.parent.mkdir(parents=True, exist_ok=True)
-        if isinstance(result, np.ndarray):
-            np.save(self.path / f"{identifier}.npy", result)
-        elif isinstance(result, xr.DataArray) or isinstance(result, xr.Dataset):
-            result.to_netcdf(self.path / f"{identifier}.nc")
-        else:
-            with open(self.path / f"{identifier}.pkl", "wb") as f:
+        if result is None:
+            return
+        path = self.path / identifier
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if self.filetype == "numpy":
+            np.save(self.path / identifier, result)
+        elif self.filetype == "netCDF4":
+            result.to_netcdf(self.path / identifier)
+        elif self.filetype == "pickle":
+            with open(self.path / identifier, "wb") as f:
                 pickle.dump(result, f)
 
     def load(self, identifier: str) -> Any:  # type: ignore  # file contents can be Any
         filepath = self.is_stored(identifier)
-        if filepath.suffix == ".npy":
+        if self.filetype == "numpy":
             return np.load(filepath)
-        elif filepath.suffix == ".nc":
+        elif self.filetype == "netCDF4":
             try:
                 return xr.open_dataarray(filepath)
             except Exception:
                 return xr.open_dataset(filepath)
-        else:
+        elif self.filetype == "pickle":
             with open(filepath, "rb") as f:
                 return pickle.load(f)
 
@@ -121,43 +113,3 @@ class Cacher:
         bound_arguments = signature.bind(*args, **kwargs)
         bound_arguments.apply_defaults()
         return bound_arguments.arguments
-
-    def create_identifier(self, function: Callable[P, R], args: dict[str, Any]) -> str:  # type: ignore  # arguments can be Any
-        if self.include is not None:
-            args = {key: value for key, value in args.items() if key in self.include}
-        module_identifier, parameters_identifier = create_identifier(function, args)
-        if parameters_identifier:
-            if self.custom_identifier:
-                filename = "_".join((parameters_identifier, self.custom_identifier))
-            else:
-                filename = parameters_identifier
-        else:
-            if self.custom_identifier:
-                filename = self.custom_identifier
-            else:
-                raise ValueError(
-                    "Custom identifier must be passed if no arguments are used for"
-                    " naming"
-                )
-
-        return f"{module_identifier}/{filename}"
-
-
-def create_identifier(  # type: ignore  # arguments can be Any
-    function: Callable[P, R], args: dict[str, Any]
-) -> tuple[str, str]:
-    module = [function.__module__, function.__name__]
-    if "self" in args:
-        object = args["self"]
-        class_name = object.__class__.__name__
-        if "object at" in str(object):
-            object = class_name
-        else:
-            object = f"{class_name}({str(object)})"
-        module.insert(1, object)
-        del args["self"]
-    module_identifier = ".".join(module)
-    parameters_identifier = ",".join(
-        f"{key}={str(value).replace('/', '_')}" for key, value in args.items()
-    )
-    return module_identifier, parameters_identifier
