@@ -84,7 +84,7 @@ class Cacher:
         if self.filetype == "numpy":
             np.save(self.path / identifier, result)
         elif self.filetype == "netCDF4":
-            result.to_netcdf(self.path / identifier)
+            result.to_netcdf(self.path / identifier, compute=True)
         elif self.filetype == "pickle":
             with open(self.path / identifier, "wb") as f:
                 pickle.dump(result, f)
