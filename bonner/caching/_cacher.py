@@ -1,6 +1,8 @@
-from typing import Any, Callable, ParamSpec, TypeVar
+from typing import Any, ParamSpec, TypeVar
+from collections.abc import Callable, Mapping
 
 from functools import wraps
+from tqdm.dask import TqdmCallback
 import inspect
 from pathlib import Path
 import os
@@ -18,6 +20,9 @@ DEFAULT_PATH = Path(
 DEFAULT_MODE = os.getenv("BONNER_CACHING_MODE", "normal")
 
 MODES = {"normal", "readonly", "overwrite", "delete", "ignore"}
+
+
+# TODO factorize the loaders and savers for different formats into their own classes; see bonner-brainio's Uploader/Downloader classes for inspiration
 
 
 class Cacher:
@@ -38,7 +43,12 @@ class Cacher:
         self.identifier = identifier
         self.filetype = filetype
 
-    def __call__(self, function: Callable[P, R]) -> Callable[P, R]:
+    def __call__(
+        self,
+        function: Callable[P, R],
+        kwargs_save: Mapping[str, Any],
+        kwargs_load: Mapping[str, Any],
+    ) -> Callable[P, R]:
         @wraps(function)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             call_args = self.get_args(function, *args, **kwargs)
@@ -47,18 +57,18 @@ class Cacher:
 
             if self.mode == "normal":
                 if self.is_stored(identifier):
-                    result = self.load(identifier)
+                    result = self.load(identifier, **kwargs_load)
                 else:
                     result = function(*args, **kwargs)
-                    self.save(result, identifier)
+                    self.save(result, identifier, **kwargs_save)
             elif self.mode == "readonly":
                 if self.is_stored(identifier):
-                    result = self.load(identifier)
+                    result = self.load(identifier, **kwargs_load)
                 else:
                     result = function(*args, **kwargs)
             elif self.mode == "overwrite":
                 result = function(*args, **kwargs)
-                self.save(result, identifier)
+                self.save(result, identifier, **kwargs_save)
             elif self.mode == "delete":
                 if self.is_stored(identifier):
                     self.delete(identifier)
@@ -76,31 +86,32 @@ class Cacher:
         else:
             return None
 
-    def save(self, result: Any, identifier: str) -> None:  # type: ignore  # result can be Any
+    def save(self, result: Any, identifier: str, **kwargs_save) -> None:  # type: ignore  # result can be Any
         if result is None:
             return
         path = self.path / identifier
         path.parent.mkdir(parents=True, exist_ok=True)
         if self.filetype == "numpy":
-            np.save(self.path / identifier, result)
+            np.save(self.path / identifier, result, **kwargs_save)
         elif self.filetype == "netCDF4":
-            result.to_netcdf(self.path / identifier, compute=True)
+            with TqdmCallback(desc="dask", leave=False):
+                result.to_netcdf(self.path / identifier, **kwargs_save)
         elif self.filetype == "pickle":
             with open(self.path / identifier, "wb") as f:
-                pickle.dump(result, f)
+                pickle.dump(result, f, **kwargs_save)
 
-    def load(self, identifier: str) -> Any:  # type: ignore  # file contents can be Any
+    def load(self, identifier: str, **kwargs_load) -> Any:  # type: ignore  # file contents can be Any
         filepath = self.is_stored(identifier)
         if self.filetype == "numpy":
-            return np.load(filepath)
+            return np.load(filepath, **kwargs_load)
         elif self.filetype == "netCDF4":
             try:
-                return xr.open_dataarray(filepath)
+                return xr.open_dataarray(filepath, **kwargs_load)
             except Exception:
-                return xr.open_dataset(filepath)
+                return xr.open_dataset(filepath, **kwargs_load)
         elif self.filetype == "pickle":
             with open(filepath, "rb") as f:
-                return pickle.load(f)
+                return pickle.load(f, **kwargs_load)
 
     def delete(self, identifier: str) -> None:
         filepath = self.is_stored(identifier)
