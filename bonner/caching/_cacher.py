@@ -1,13 +1,14 @@
 from typing import Any, ParamSpec, TypeVar
 from collections.abc import Callable, Mapping
-
 from functools import wraps
+
 from tqdm.dask import TqdmCallback
 import inspect
 from pathlib import Path
 import os
 import pickle
 
+from loguru import logger
 import numpy as np
 import xarray as xr
 
@@ -96,8 +97,16 @@ class Cacher:
         if self.filetype == "numpy":
             np.save(self.path / identifier, result, **kwargs_save)
         elif self.filetype == "netCDF4":
-            with TqdmCallback(desc="dask", leave=False):
-                result.to_netcdf(self.path / identifier, **kwargs_save)
+            if result.size == 0:
+                logger.warning(
+                    "The result has size 0, writing an empty netCDF4 file to"
+                    f" {self.path / identifier}"
+                )
+                x = xr.DataArray()
+                x.to_netcdf(self.path / identifier)
+            else:
+                with TqdmCallback(desc="dask", leave=False):
+                    result.to_netcdf(self.path / identifier, **kwargs_save)
         elif self.filetype == "pickle":
             with open(self.path / identifier, "wb") as f:
                 pickle.dump(result, f, **kwargs_save)
