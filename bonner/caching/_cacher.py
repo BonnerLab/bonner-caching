@@ -33,6 +33,8 @@ class Cacher:
         mode: str = DEFAULT_MODE,
         identifier: str = None,
         filetype: str = "pickle",
+        kwargs_save: Mapping[str, Any] = {},
+        kwargs_load: Mapping[str, Any] = {},
     ) -> None:
         self.path = path
         self.path.mkdir(parents=True, exist_ok=True)
@@ -42,12 +44,12 @@ class Cacher:
         self.mode = mode
         self.identifier = identifier
         self.filetype = filetype
+        self.kwargs_save = kwargs_save
+        self.kwargs_load = kwargs_load
 
     def __call__(
         self,
         function: Callable[P, R],
-        kwargs_save: Mapping[str, Any],
-        kwargs_load: Mapping[str, Any],
     ) -> Callable[P, R]:
         @wraps(function)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
@@ -57,18 +59,18 @@ class Cacher:
 
             if self.mode == "normal":
                 if self.is_stored(identifier):
-                    result = self.load(identifier, **kwargs_load)
+                    result = self.load(identifier, **self.kwargs_load)
                 else:
                     result = function(*args, **kwargs)
-                    self.save(result, identifier, **kwargs_save)
+                    self.save(result, identifier, **self.kwargs_save)
             elif self.mode == "readonly":
                 if self.is_stored(identifier):
-                    result = self.load(identifier, **kwargs_load)
+                    result = self.load(identifier, **self.kwargs_load)
                 else:
                     result = function(*args, **kwargs)
             elif self.mode == "overwrite":
                 result = function(*args, **kwargs)
-                self.save(result, identifier, **kwargs_save)
+                self.save(result, identifier, **self.kwargs_save)
             elif self.mode == "delete":
                 if self.is_stored(identifier):
                     self.delete(identifier)
