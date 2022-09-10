@@ -97,7 +97,7 @@ class Cacher:
         if self.filetype == "numpy":
             np.save(self.path / identifier, result, **kwargs_save)
         elif self.filetype == "netCDF4":
-            if result.size == 0:
+            if isinstance(result, xr.DataArray) and result.size == 0:
                 logger.warning(
                     "The result has size 0, writing an empty netCDF4 file to"
                     f" {self.path / identifier}"
