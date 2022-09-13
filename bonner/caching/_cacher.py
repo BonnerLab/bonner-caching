@@ -31,11 +31,34 @@ class Cacher:
         kwargs_save: Mapping[str, Any] = {},
         kwargs_load: Mapping[str, Any] = {},
     ) -> Callable[[Callable[P, R]], Callable[P, R]]:
+        """Caches outputs of functions to disk.
+
+        When the cacher is called on a function, it computes the output of the function and stores it on disk at the path ``path / identifier``. If the function is called again, the cached value is retrieved from disk and returned.
+
+        Args:
+            path: Cache directory to save to/load from. Defaults to the value of the environment variable BONNER_CACHING_CACHE. If the environment variable is not set, defaults to ``~/.cache/bonner-caching``.
+            mode: Controls the behavior of the cacher:
+                * "normal": If the function output has been previously cached, the stored value is retrieved and returned. If the output has not been previously cached, the function body is run and the output is cached.
+                * "readonly": If the function output has been previously cached, the stored value is retrieved and returned. If the output has not been previously cached, the function body is run but the output is NOT cached.
+                * "overwrite": The function body is run and the output is cached, overwriting any existing cached output. Existing cached values are not read from.
+                * "delete": The function body is run and the output is returned. Any existing cached values are deleted.
+                * "ignore": The function body is run and the output is returned. Any existing cached values are ignored.
+                Defaults to the value of the environment variable BONNER_CACHING_MODE. If the environment variable is not set, defaults to "normal".
+            identifier: _description_. Defaults to None.
+            filetype: Serialization protocol used to cache the files to disk. Supported filetypes include:
+                * "numpy": If the function output is a single numpy array, the `numpy.save` function is used. If the
+                * "netCDF4": If the function output is an xarray.DataArray or an xarray.Dataset, the `.to_netcdf` method is used to save the variables to disk.
+                * "pickle": All other function outputs are pickled.
+                 Defaults to "pickle".
+            kwargs_save: Keyword arguments passed on to the `.save` method of the `Handler` corresponding to `filetype`. Defaults to {}.
+            kwargs_load: Keyword arguments passed on to the `.load` method of the `Handler` corresponding to `filetype`. Defaults to {}.
+
+        Returns:
+            Any: The output of the function.
+        """
         self.path = path
         self.path.mkdir(parents=True, exist_ok=True)
 
-        if mode not in MODES:
-            raise ValueError(f"mode must be one of {MODES}")
         self.mode = mode
         self.identifier = identifier
         self.filetype = filetype
@@ -72,6 +95,8 @@ class Cacher:
                 result = func(*args, **kwargs)
             elif self.mode == "ignore":
                 result = func(*args, **kwargs)
+            else:
+                raise ValueError(f"mode must be one of {MODES}")
             return result
 
         return wrapper
