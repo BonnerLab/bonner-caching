@@ -12,20 +12,17 @@ from ._handlers import get_handler
 P = ParamSpec("P")
 R = TypeVar("R")
 
-DEFAULT_PATH = Path(
-    os.getenv("BONNER_CACHING_CACHE", str(Path.home() / ".cache" / "bonner-caching"))
-)
-DEFAULT_MODE = os.getenv("BONNER_CACHING_MODE", "normal")
-
-MODES = {"normal", "readonly", "overwrite", "delete", "ignore"}
-
 
 class Cacher:
     def __init__(  # type: ignore  # kwargs can be Any
         self,
         *,
-        path: Path = DEFAULT_PATH,
-        mode: str = DEFAULT_MODE,
+        path: Path = Path(
+            os.getenv(
+                "BONNER_CACHING_CACHE", str(Path.home() / ".cache" / "bonner-caching")
+            )
+        ),
+        mode: str = os.getenv("BONNER_CACHING_MODE", "normal"),
         identifier: str = None,
         filetype: str = "pickle",
         kwargs_save: Mapping[str, Any] = {},
@@ -33,7 +30,7 @@ class Cacher:
     ) -> Callable[[Callable[P, R]], Callable[P, R]]:
         """Caches outputs of functions to disk.
 
-        When the cacher is called on a function, it computes the output of the function and stores it on disk at the path ``path / identifier``. If the function is called again, the cached value is retrieved from disk and returned.
+        When the cacher is called on a function, it computes the output of the function and stores it on disk at the path ``path / identifier``. If the function is called again, the cached value is retrieved from disk and returned. The identifier can be parametrized by the function inputs: for example, if the function takes in the integer x as input, setting the identifier to "{x}.pkl" will result in the filename "2.pkl".
 
         Args:
             path: Cache directory to save to/load from. Defaults to the value of the environment variable BONNER_CACHING_CACHE. If the environment variable is not set, defaults to ``~/.cache/bonner-caching``.
@@ -60,6 +57,9 @@ class Cacher:
         self.path.mkdir(parents=True, exist_ok=True)
 
         self.mode = mode
+        modes = {"normal", "readonly", "overwrite", "delete", "ignore"}
+        assert mode in modes, f"mode {mode} not supported (allowed modes: {modes}"
+
         self.identifier = identifier
         self.filetype = filetype
         self.kwargs_save = kwargs_save
@@ -77,43 +77,46 @@ class Cacher:
 
             if self.mode == "normal":
                 if self._get_path(identifier):
-                    result = self.load(identifier, **self.kwargs_load)
+                    result = self._load(identifier, **self.kwargs_load)
                 else:
                     result = func(*args, **kwargs)
-                    self.save(result, identifier, **self.kwargs_save)
+                    self._save(result, identifier, **self.kwargs_save)
             elif self.mode == "readonly":
                 if self._get_path(identifier):
-                    result = self.load(identifier, **self.kwargs_load)
+                    result = self._load(identifier, **self.kwargs_load)
                 else:
                     result = func(*args, **kwargs)
             elif self.mode == "overwrite":
                 result = func(*args, **kwargs)
-                self.save(result, identifier, **self.kwargs_save)
+                self._save(result, identifier, **self.kwargs_save)
             elif self.mode == "delete":
                 if self._get_path(identifier):
-                    self.delete(identifier)
+                    self._delete(identifier)
                 result = func(*args, **kwargs)
             elif self.mode == "ignore":
                 result = func(*args, **kwargs)
             else:
-                raise ValueError(f"mode must be one of {MODES}")
+                raise ValueError(
+                    f"mode must be one of 'normal', 'readonly', 'overwrite', 'delete',"
+                    f" or 'ignore'"
+                )
             return result
 
         return wrapper
 
-    def save(self, result: Any, identifier: str) -> None:  # type: ignore  # result can be Any
+    def _save(self, result: Any, identifier: str) -> None:  # type: ignore  # result can be Any
         path = self.path / identifier
         path.parent.mkdir(parents=True, exist_ok=True)
 
         handler = get_handler(filetype=self.filetype)
         handler.save(result=result, path=path, **self.kwargs_save)
 
-    def load(self, identifier: str) -> Any:  # type: ignore  # file contents can be Any
+    def _load(self, identifier: str) -> Any:  # type: ignore  # file contents can be Any
         path = self._get_path(identifier)
         handler = get_handler(filetype=self.filetype)
         return handler.load(path=path, **self.kwargs_load)
 
-    def delete(self, identifier: str) -> None:
+    def _delete(self, identifier: str) -> None:
         filepath = self._get_path(identifier)
         filepath.unlink()
 
