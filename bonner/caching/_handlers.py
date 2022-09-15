@@ -24,7 +24,7 @@ class Handler(ABC):
         pass
 
 
-class HandlerNumpy(Handler):
+class NumpyHandler(Handler):
     def __init__(self) -> None:
         super().__init__()
 
@@ -50,7 +50,7 @@ class HandlerNumpy(Handler):
         return np.load(path, **kwargs)
 
 
-class HandlerXarray(Handler):
+class XarrayHandler(Handler):
     def __init__(self) -> None:
         super().__init__()
 
@@ -73,7 +73,7 @@ class HandlerXarray(Handler):
             return xr.open_dataset(path, **kwargs)
 
 
-class HandlerPickle(Handler):
+class PickleHandler(Handler):
     def __init__(self) -> None:
         super().__init__()
 
@@ -88,8 +88,10 @@ class HandlerPickle(Handler):
 
 def get_handler(filetype: str) -> Handler:
     if filetype == "numpy":
-        return HandlerNumpy()
+        return NumpyHandler()
     elif filetype == "netCDF4":
-        return HandlerXarray()
+        return XarrayHandler()
     elif filetype == "pickle":
-        return HandlerPickle()
+        return PickleHandler()
+    else:
+        raise ValueError(f"Handler for filetype {filetype} not supported")
