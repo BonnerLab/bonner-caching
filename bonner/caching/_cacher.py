@@ -24,6 +24,7 @@ class Cacher:
         ),
         mode: str = os.getenv("BONNER_CACHING_MODE", "normal"),
         identifier: str = None,
+        helper: Callable[[Mapping[str, Any]], dict[str, str]] = None,
         filetype: str = "pickle",
         kwargs_save: Mapping[str, Any] = {},
         kwargs_load: Mapping[str, Any] = {},
@@ -61,6 +62,7 @@ class Cacher:
         assert mode in modes, f"mode {mode} not supported (allowed modes: {modes}"
 
         self.identifier = identifier
+        self.helper = helper
         self.filetype = filetype
         self.kwargs_save = kwargs_save
         self.kwargs_load = kwargs_load
@@ -73,6 +75,8 @@ class Cacher:
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             call_args = self._get_args(func, *args, **kwargs)
 
+            if self.helper is not None:
+                call_args = self.helper(call_args)
             identifier = self.identifier.format(**call_args)
 
             if self.mode == "normal":
