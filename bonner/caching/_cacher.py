@@ -33,7 +33,7 @@ class Cacher:
 
         When the cacher is called on a function, it computes the output of the function and stores it on disk at the path ``path / identifier``. If the function is called again, the cached value is retrieved from disk and returned.
 
-        The identifier can be parametrized by the function inputs: for example, if the function takes in the integer x as input, setting the identifier to "{x}.pkl" will result in the filename "2.pkl". This is accomplished by calling ``identifier.format(*args, **kwargs)``, requires that the template arguments have direct string representation. For additional flexibility, the cacher offers the ``helper`` argument, which is a function that takes in the arguments to the function as a dictionary and returns a dictionary mapping template variables to actual values, including potential evaluations.
+        The identifier can be parametrized by the function inputs: for example, if the function takes in the integer x as input, setting the identifier to "{x}.pkl" will result in the filename "2.pkl". This is accomplished by calling ``identifier.format(*args, **kwargs)``, which requires that the template arguments have direct string representation. For additional flexibility, the cacher offers the ``helper`` argument, which is a function that takes in the arguments to the function as a dictionary and returns a dictionary mapping template variables to actual values, including potential evaluations.
 
         Basic usage:
 
