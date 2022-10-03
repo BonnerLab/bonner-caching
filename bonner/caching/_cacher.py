@@ -33,7 +33,7 @@ class Cacher:
 
         When the cacher is called on a function, it computes the output of the function and stores it on disk at the path ``path / identifier``. If the function is called again, the cached value is retrieved from disk and returned.
 
-        The identifier can be parametrized by the function inputs: for example, if the function takes in the integer x as input, setting the identifier to "{x}.pkl" will result in the filename "2.pkl". This is accomplished by calling ``identifier.format(*args, **kwargs)``, which requires that the template arguments have direct string representation. For additional flexibility, the cacher offers the ``helper`` argument, which is a function that takes in the arguments to the function as a dictionary and returns a dictionary mapping template variables to actual values, including potential evaluations.
+        The identifier can be parametrized by the function inputs: for example, if the function takes in the integer x as input, setting the identifier to "{x}.pkl" will result in the filename "2.pkl". This is accomplished by calling ``identifier.format(*args, **kwargs)``, which requires that the template arguments have direct string representations. For additional flexibility, the cacher offers the ``helper`` argument, which must be a function that takes in the arguments to the function as a dictionary and returns a dictionary mapping template variables to actual values, including potential evaluations.
 
         Basic usage:
 
@@ -67,6 +67,7 @@ class Cacher:
         ```
 
         Todo:
+            * Support filetype = "auto", which auto-detects filetype based on output class
             * Track progress of :PEP: `501` (https://peps.python.org/pep-0501/) which introduces lazy f-strings. This would allow for a simpler implementation without the ``helper`` argument.
 
         Args:
@@ -109,11 +110,11 @@ class Cacher:
     ) -> Callable[P, R]:
         @wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-            call_args = self._get_args(func, *args, **kwargs)
+            args_to_format = self._get_args(func, *args, **kwargs)
 
             if self.helper is not None:
-                call_args = self.helper(call_args)
-            identifier = self.identifier.format(**call_args)
+                args_to_format = self.helper(args_to_format)
+            identifier = self.identifier.format(**args_to_format)
 
             if self.mode == "normal":
                 if self._get_path(identifier):
