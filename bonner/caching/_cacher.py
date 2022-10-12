@@ -7,6 +7,9 @@ import inspect
 from pathlib import Path
 import os
 
+import numpy as np
+import xarray as xr
+
 from ._handlers import get_handler
 
 P = ParamSpec("P")
@@ -24,7 +27,7 @@ class Cacher:
         ),
         identifier: str = None,
         helper: Callable[[Mapping[str, Any]], dict[str, str]] = None,
-        filetype: str = "pickle",
+        filetype: str = "auto",
         mode: str = os.getenv("BONNER_CACHING_MODE", "normal"),
         kwargs_save: Mapping[str, Any] = {},
         kwargs_load: Mapping[str, Any] = {},
@@ -81,10 +84,11 @@ class Cacher:
                 Defaults to the value of the environment variable BONNER_CACHING_MODE. If the environment variable is not set, defaults to "normal".
             identifier: _description_. Defaults to None.
             filetype: Serialization protocol used to cache the files to disk. Supported filetypes include:
-                * "numpy": If the function output is a single numpy array, the `numpy.save` function is used. If the
+                * "auto" (default): Uses one of the following protocols depending on the function output. Requires that the suffix of the 'identifier' is '.npy' for numpy, '.nc' for netCDF4, and '.pkl' for pickle.
+                * "numpy": If the function output is a single numpy array, the `numpy.save` function is used.
                 * "netCDF4": If the function output is an xarray.DataArray or an xarray.Dataset, the `.to_netcdf` method is used to save the variables to disk.
                 * "pickle": All other function outputs are pickled.
-                 Defaults to "pickle".
+                 Defaults to "auto".
             kwargs_save: Keyword arguments passed on to the `.save` method of the `Handler` corresponding to `filetype`. Defaults to {}.
             kwargs_load: Keyword arguments passed on to the `.load` method of the `Handler` corresponding to `filetype`. Defaults to {}.
 
@@ -121,7 +125,7 @@ class Cacher:
                     result = self._load(identifier, **self.kwargs_load)
                 else:
                     result = func(*args, **kwargs)
-                    self._save(result, identifier, **self.kwargs_save)
+                    self._save(result, identifier=identifier, **self.kwargs_save)
             elif self.mode == "readonly":
                 if self._get_path(identifier):
                     result = self._load(identifier, **self.kwargs_load)
@@ -129,7 +133,7 @@ class Cacher:
                     result = func(*args, **kwargs)
             elif self.mode == "overwrite":
                 result = func(*args, **kwargs)
-                self._save(result, identifier, **self.kwargs_save)
+                self._save(result, identifier=identifier, **self.kwargs_save)
             elif self.mode == "delete":
                 if self._get_path(identifier):
                     self._delete(identifier)
@@ -145,16 +149,49 @@ class Cacher:
 
         return wrapper
 
-    def _save(self, result: Any, identifier: str) -> None:  # type: ignore  # result can be Any
+    def _save(self, result: Any, *, identifier: str) -> None:  # type: ignore  # result can be Any
         path = self.path / identifier
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        handler = get_handler(filetype=self.filetype)
+        if self.filetype == "auto":
+            if isinstance(result, np.ndarray):
+                filetype = "numpy"
+                if path.suffix != ".npy":
+                    raise ValueError(
+                        "identifier must have suffix '.npy' if filetype is 'auto'"
+                    )
+            elif isinstance(result, (xr.DataArray, xr.Dataset)):
+                filetype = "netCDF4"
+                if path.suffix != ".nc":
+                    raise ValueError(
+                        "identifier must have suffix '.nc' if filetype is 'auto'"
+                    )
+            else:
+                filetype = "pickle"
+                if path.suffix != ".pkl":
+                    raise ValueError(
+                        "identifier must have suffix '.pkl' if filetype is 'auto'"
+                    )
+        else:
+            filetype = self.filetype
+
+        handler = get_handler(filetype=filetype)
         handler.save(result=result, path=path, **self.kwargs_save)
 
     def _load(self, identifier: str) -> Any:  # type: ignore  # file contents can be Any
         path = self._get_path(identifier)
-        handler = get_handler(filetype=self.filetype)
+
+        if self.filetype == "auto":
+            if path.suffix == ".npy":
+                filetype = "numpy"
+            elif path.suffix == ".nc":
+                filetype = "netCDF4"
+            elif path.suffix == ".pkl":
+                filetype = "pickle"
+        else:
+            filetype = self.filetype
+
+        handler = get_handler(filetype=filetype)
         return handler.load(path=path, **self.kwargs_load)
 
     def _delete(self, identifier: str) -> None:
