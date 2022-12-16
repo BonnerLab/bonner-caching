@@ -120,31 +120,32 @@ class Cacher:
                 args_to_format = self.helper(args_to_format)
             identifier = self.identifier.format(**args_to_format)
 
-            if self.mode == "normal":
-                if self._get_path(identifier):
-                    result = self._load(identifier, **self.kwargs_load)
-                else:
+            match self.mode:
+                case "normal":
+                    if self._get_path(identifier):
+                        result = self._load(identifier, **self.kwargs_load)
+                    else:
+                        result = func(*args, **kwargs)
+                        self._save(result, identifier=identifier, **self.kwargs_save)
+                case "readonly":
+                    if self._get_path(identifier):
+                        result = self._load(identifier, **self.kwargs_load)
+                    else:
+                        result = func(*args, **kwargs)
+                case "overwrite":
                     result = func(*args, **kwargs)
                     self._save(result, identifier=identifier, **self.kwargs_save)
-            elif self.mode == "readonly":
-                if self._get_path(identifier):
-                    result = self._load(identifier, **self.kwargs_load)
-                else:
+                case "delete":
+                    if self._get_path(identifier):
+                        self._delete(identifier)
                     result = func(*args, **kwargs)
-            elif self.mode == "overwrite":
-                result = func(*args, **kwargs)
-                self._save(result, identifier=identifier, **self.kwargs_save)
-            elif self.mode == "delete":
-                if self._get_path(identifier):
-                    self._delete(identifier)
-                result = func(*args, **kwargs)
-            elif self.mode == "ignore":
-                result = func(*args, **kwargs)
-            else:
-                raise ValueError(
-                    f"mode must be one of 'normal', 'readonly', 'overwrite', 'delete',"
-                    f" or 'ignore'"
-                )
+                case "ignore":
+                    result = func(*args, **kwargs)
+                case _:
+                    raise ValueError(
+                        f"mode must be one of 'normal', 'readonly', 'overwrite',"
+                        f" 'delete', or 'ignore'"
+                    )
             return result
 
         return wrapper
@@ -182,12 +183,13 @@ class Cacher:
         path = self._get_path(identifier)
 
         if self.filetype == "auto":
-            if path.suffix == ".npy":
-                filetype = "numpy"
-            elif path.suffix == ".nc":
-                filetype = "netCDF4"
-            elif path.suffix == ".pkl":
-                filetype = "pickle"
+            match path.suffix:
+                case ".npy":
+                    filetype = "numpy"
+                case ".nc":
+                    filetype = "netCDF4"
+                case ".pkl":
+                    filetype = "pickle"
         else:
             filetype = self.filetype
 

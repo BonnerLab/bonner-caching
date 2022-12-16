@@ -87,11 +87,12 @@ class PickleHandler(Handler):
 
 
 def get_handler(filetype: str) -> Handler:
-    if filetype == "numpy":
-        return NumpyHandler()
-    elif filetype == "netCDF4":
-        return XarrayHandler()
-    elif filetype == "pickle":
-        return PickleHandler()
-    else:
-        raise ValueError(f"Handler for filetype {filetype} not supported")
+    match filetype:
+        case "numpy":
+            return NumpyHandler()
+        case "netCDF4":
+            return XarrayHandler()
+        case "pickle":
+            return PickleHandler()
+        case _:
+            raise ValueError(f"Handler for filetype {filetype} not supported")
