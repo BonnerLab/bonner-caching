@@ -1,3 +1,3 @@
 __all__ = ["cache"]
 
-from ._cacher import Cacher as cache
+from bonner.caching._cacher import Cacher as cache

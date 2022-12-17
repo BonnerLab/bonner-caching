@@ -10,7 +10,7 @@ import os
 import numpy as np
 import xarray as xr
 
-from ._handlers import get_handler
+from bonner.caching._handlers import get_handler
 
 P = ParamSpec("P")
 R = TypeVar("R")
